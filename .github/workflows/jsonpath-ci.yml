@@ -42,7 +42,7 @@ jobs:
 
   full-build:
     # JDK 11 is not possible for the full build: johnzon-jsonb test dependencies (OpenWebBeans) need Java 17+.
-    # JDK 25: JSON-B TCK NumberFormatCustomizationTest fails on this JDK with unchanged code (locale data), excluded here.
+    # JDK 25: JSON-B TCK NumberFormatCustomizationTest fails on this JDK with unchanged code (locale data), tolerated here (all other failures still fail the job).
     name: Full build on JDK ${{ matrix.jdk }}
     runs-on: ubuntu-latest
     strategy:
@@ -61,4 +61,9 @@ jobs:
       - name: Maven package
         env:
           MAVEN_OPTS: -Dmaven.artifact.threads=64
-        run: mvn -V -B package --no-transfer-progress ${{ matrix.jdk == '25' && '-Dtest=!NumberFormatCustomizationTest -Dsurefire.failIfNoSpecifiedTests=false' || '' }}
+        run: mvn -V -B package --no-transfer-progress ${{ matrix.jdk == '25' && '-Dmaven.test.failure.ignore=true' || '' }}
+      - name: JDK 25 - only the known JSON-B TCK locale failure may remain
+        if: matrix.jdk == '25'
+        run: |
+          bad=$(grep -rlE '(<failure|<error)' --include='TEST-*.xml' . | grep -v 'NumberFormatCustomizationTest' || true)
+          if [ -n "$bad" ]; then echo "Unexpected failures:"; echo "$bad"; exit 1; fi
