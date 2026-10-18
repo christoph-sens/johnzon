@@ -1,0 +1,63 @@
+name: JSONPath integration branch CI
+
+# Baseline CI for the `jsonpath` integration branch: Maven build + unchanged JSON-P TCK (tck-impl, TCK 2.1.1).
+on:
+  push:
+    branches: [ jsonpath ]
+  pull_request:
+    branches: [ jsonpath ]
+
+concurrency:
+  group: jsonpath-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build on JDK ${{ matrix.jdk }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        jdk: [ '11', '17', '21', '25' ]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          java-version: ${{ matrix.jdk }}
+          distribution: temurin
+          cache: maven
+      - name: Maven package (with unit tests)
+        env:
+          MAVEN_OPTS: -Dmaven.artifact.threads=64
+        run: mvn -V -B package --no-transfer-progress
+
+  tck:
+    name: JSON-P TCK (${{ matrix.suite }}) on JDK ${{ matrix.jdk }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        jdk: [ '11', '17', '21', '25' ]
+        suite: [ tck, pluggability ]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          java-version: ${{ matrix.jdk }}
+          distribution: temurin
+          cache: maven
+      - name: Install johnzon-core
+        run: mvn -V -B install -DskipTests -Drat.skip=true -Dcheckstyle.skip=true -pl johnzon-core -am --no-transfer-progress
+      - name: Run TCK
+        run: mvn -B -f tck-impl/pom.xml verify -P${{ matrix.suite }} --no-transfer-progress
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tck-reports-jdk${{ matrix.jdk }}-${{ matrix.suite }}
+          path: tck-impl/target/surefire-reports
+          if-no-files-found: ignore

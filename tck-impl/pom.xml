@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Licensed to the Apache Software Foundation (ASF) under one
+  or more contributor license agreements.  See the NOTICE file
+  distributed with this work for additional information
+  regarding copyright ownership.  The ASF licenses this file
+  to you under the Apache License, Version 2.0 (the
+  "License"); you may not use this file except in compliance
+  with the License.  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing,
+  software distributed under the License is distributed on an
+  "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+  KIND, either express or implied.  See the License for the
+  specific language governing permissions and limitations
+  under the License.
+-->
+<!--
+  Runs the unchanged Jakarta JSON Processing TCK (jakarta.json-tck-tests / -pluggability from Maven Central)
+  against johnzon-core. Standalone build, not part of the main reactor.
+
+    mvn -f pom.xml install -DskipTests -pl johnzon-core -am     # install johnzon-core SNAPSHOT
+    mvn -f tck-impl/pom.xml verify -Ptck                        # TCK API tests
+    mvn -f tck-impl/pom.xml verify -Ppluggability               # TCK pluggability tests
+    (signature tests only check the API jar, not the implementation, and are skipped here)
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>org.apache.johnzon</groupId>
+  <artifactId>johnzon-tck-impl</artifactId>
+  <version>2.2.1-SNAPSHOT</version>
+  <packaging>pom</packaging>
+  <name>Johnzon :: JSON-P TCK</name>
+
+  <properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <johnzon.version>2.2.1-SNAPSHOT</johnzon.version>
+    <jakarta-jsonp-api.version>2.1.3</jakarta-jsonp-api.version>
+    <jsonp-tck.version>2.1.1</jsonp-tck.version>
+    <junit.version>5.11.4</junit.version>
+    <surefire.version>3.5.2</surefire.version>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.apache.johnzon</groupId>
+      <artifactId>johnzon-core</artifactId>
+      <version>${johnzon.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>jakarta.json</groupId>
+      <artifactId>jakarta.json-api</artifactId>
+      <version>${jakarta-jsonp-api.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <version>${junit.version}</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>${surefire.version}</version>
+        <configuration>
+          <useModulePath>false</useModulePath>
+          <trimStackTrace>false</trimStackTrace>
+          <systemPropertyVariables>
+            <java.awt.headless>true</java.awt.headless>
+          </systemPropertyVariables>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+
+  <profiles>
+    <profile>
+      <id>tck</id>
+      <dependencies>
+        <dependency>
+          <groupId>jakarta.json</groupId>
+          <artifactId>jakarta.json-tck-tests</artifactId>
+          <version>${jsonp-tck.version}</version>
+          <scope>test</scope>
+        </dependency>
+      </dependencies>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-surefire-plugin</artifactId>
+            <configuration>
+              <dependenciesToScan>
+                <dependency>jakarta.json:jakarta.json-tck-tests</dependency>
+              </dependenciesToScan>
+              <excludes>
+                <exclude>**/JSONPSigTest*</exclude>
+              </excludes>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+    <profile>
+      <id>pluggability</id>
+      <dependencies>
+        <dependency>
+          <groupId>jakarta.json</groupId>
+          <artifactId>jakarta.json-tck-tests-pluggability</artifactId>
+          <version>${jsonp-tck.version}</version>
+          <scope>test</scope>
+        </dependency>
+      </dependencies>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-surefire-plugin</artifactId>
+            <configuration>
+              <dependenciesToScan>
+                <dependency>jakarta.json:jakarta.json-tck-tests-pluggability</dependency>
+              </dependenciesToScan>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
+</project>
