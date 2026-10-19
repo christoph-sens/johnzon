@@ -66,6 +66,14 @@ The generator factory supports the standard properties (pretty one for example) 
 * `org.apache.johnzon.default-char-buffer-generator` (int): buffer size of the generator, it enables to work in memory to flush less often (for performances).
 * `org.apache.johnzon.boundedoutputstreamwriter` (int): when converting an `OuputStream` to a `Writer` it defines the buffer size (if > 0) +- 2 charaters (for the encoding logic). It enables a faster flushing to the actual underlying output stream combined with `org.apache.johnzon.default-char-buffer-generator`.
 
+#### JSONPath
+
+`Json.createPath(String)` (Jakarta JSON-P 2.2) evaluates JSONPath queries as defined by RFC 9535, including the I-Regexp (RFC 9485) based `match()` and `search()` functions, which run in linear time. Numbers are compared exactly by their `BigDecimal` value, so `1`, `1.0` and `1e0` are equal. To bound the work spent on queries and documents from untrusted sources, an evaluation that exceeds one of these limits fails with a `JsonException` naming the limit. The system properties are read when the `JsonProvider` is created:
+
+* `org.apache.johnzon.jsonpath.max-visited-nodes` (long): node visits per evaluation, default 100,000,000.
+* `org.apache.johnzon.jsonpath.max-result-size` (int): nodes in a result, default unlimited.
+* `org.apache.johnzon.jsonpath.max-depth` (int): depth to which a query walks into the query argument and compares values, default 1,000.
+
 ### JSON-P Strict Compliance (stable)
 
 **This has been removed with Johnzon 2.0.x, johnzon-core is now JSON-P compliant by default.**
