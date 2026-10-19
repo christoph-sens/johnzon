@@ -306,10 +306,8 @@ public class JsonPointerImpl implements JsonPointer {
 
     @Override
     public String toString() {
-        return "JsonPointerImpl{" +
-                "jsonPointer='" + jsonPointer + '\'' +
-                ", referenceTokens=" + referenceTokens +
-                '}';
+        // the contract of JsonPointer#toString(): the escaped pointer, as JsonPath.Node#getPointer() needs it
+        return jsonPointer;
     }
 
     private void validateAdd(JsonValue target) {

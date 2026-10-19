@@ -31,10 +31,21 @@
 
   <properties>
     <staging.directory>${project.parent.reporting.outputDirectory}</staging.directory>
+
+    <!-- JSONPath Compliance Test Suite (https://github.com/jsonpath-standard/jsonpath-compliance-test-suite,
+         BSD-2-Clause), downloaded for the tests at a fixed commit and checked against its SHA-256. -->
+    <jsonpath.cts.commit>20ebdcce5008c8a777ee9c80ad853ecf606950b5</jsonpath.cts.commit>
+    <jsonpath.cts.sha256>f4ab5e3d3c17b40bf59cb0fa94425790b1401eb30c35a54902a119c65c851d36</jsonpath.cts.sha256>
+    <jsonpath.cts.dir>${project.build.directory}/jsonpath-cts</jsonpath.cts.dir>
   </properties>
 
 
   <dependencies>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter-params</artifactId>
+      <scope>test</scope>
+    </dependency>
     <dependency>
       <groupId>org.junit.vintage</groupId>
       <artifactId>junit-vintage-engine</artifactId>
@@ -84,6 +95,26 @@
       </plugin>
 
       <plugin>
+        <groupId>com.googlecode.maven-download-plugin</groupId>
+        <artifactId>download-maven-plugin</artifactId>
+        <version>1.10.0</version>
+        <executions>
+          <execution>
+            <id>jsonpath-compliance-test-suite</id>
+            <phase>generate-test-resources</phase>
+            <goals>
+              <goal>wget</goal>
+            </goals>
+            <configuration>
+              <url>https://raw.githubusercontent.com/jsonpath-standard/jsonpath-compliance-test-suite/${jsonpath.cts.commit}/cts.json</url>
+              <outputDirectory>${jsonpath.cts.dir}</outputDirectory>
+              <outputFileName>cts.json</outputFileName>
+              <sha256>${jsonpath.cts.sha256}</sha256>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-dependency-plugin</artifactId>
 
@@ -117,6 +148,12 @@
         <artifactId>maven-surefire-plugin</artifactId>
         <version>${surefire.plugin.version}</version>
 
+        <configuration>
+          <systemPropertyVariables>
+            <jsonpath.cts>${jsonpath.cts.dir}/cts.json</jsonpath.cts>
+          </systemPropertyVariables>
+        </configuration>
+
         <executions>
           <execution>
             <id>tck-test</id>
@@ -131,6 +168,10 @@
               <!-- don't run johnzon tests multiple times, handled in default-test already -->
               <excludes>
                 <exclude>**/org/apache/johnzon/**</exclude>
+                <!-- The signature test of TCK 2.1.1 requires the package jakarta.json to have exactly the 2.1
+                     signature; API 2.2 adds JsonPath, Json.createPath and JsonProvider.createPath. The 2.2
+                     signature is checked by the TCK of christoph-sens/jsonp-api. -->
+                <exclude>**/JSONPSigTest.java</exclude>
               </excludes>
 
               <systemPropertyVariables>
