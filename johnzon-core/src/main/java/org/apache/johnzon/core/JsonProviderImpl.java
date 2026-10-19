@@ -239,6 +239,21 @@ public class JsonProviderImpl extends JsonProvider implements Serializable {
         return JsonPathImpl.create(query, this, jsonPathMaxVisitedNodes, jsonPathMaxResultSize, jsonPathMaxDepth);
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * <p>The configuration properties of {@link JsonPath} override the limits that {@link #createPath(String)}
+     * uses: {@link JsonPath#MAX_VISITED_NODES}, {@link JsonPath#MAX_RESULT_SIZE}, {@link JsonPath#MAX_DEPTH},
+     * {@link JsonPath#MAX_BUFFERED_NODES} (default 10,000,000), {@link JsonPath#MAX_NESTING} (default 64) and
+     * {@link JsonPath#MAX_REGEX_SIZE}, measured in automaton instructions (default 20,000). Other properties are
+     * ignored.</p>
+     */
+    @Override
+    public JsonPath createPath(String query, Map<String, ?> config) {
+        return JsonPathImpl.create(query, config, this, jsonPathMaxVisitedNodes, jsonPathMaxResultSize,
+                jsonPathMaxDepth);
+    }
+
     @Override
     public JsonPatch createPatch(JsonArray array) {
         return createPatchBuilder(array).build();
