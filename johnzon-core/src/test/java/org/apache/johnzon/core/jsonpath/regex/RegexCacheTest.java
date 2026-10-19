@@ -25,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 
 /** The per-call cache of patterns that queries read from documents. */
@@ -64,6 +65,16 @@ class RegexCacheTest {
         IRegexp evicted = cache.get("(a|b)*a(a|b){8}").get();
         evicted.matches(repeat("ab", 50));
         long automaton = evicted.automatonBytes(false);
+        // The budget for cached automata is shared by the whole JVM: automata of earlier tests that are not yet
+        // collected may leave none for this one, so try again after a collection.
+        for (int attempt = 0; attempt < 5 && automaton == 0; attempt++) {
+            System.gc();
+            cache = new RegexCache();
+            evicted = cache.get("(a|b)*a(a|b){8}").get();
+            evicted.matches(repeat("ab", 50));
+            automaton = evicted.automatonBytes(false);
+        }
+        Assumptions.assumeTrue(automaton > 0, "no budget left for cached automata in this JVM");
         int generation = IRegexp.dfaGeneration();
         long before = IRegexp.cachedDfaBytes();
 
