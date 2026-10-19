@@ -102,4 +102,16 @@ class JohnzonNumbersTest {
         assertEquals(0, count(doc, "$[?@ < 'a' && @ == 1 && @ == '1']"));
         assertEquals(1, count(doc, "$[?@ <= 1 && @ >= 1]"));
     }
+
+    @Test
+    void numbersWithHugeExponentsCompareWithoutError() {
+        // bigDecimalValue() refuses a scale beyond 1000; a filter must still compare these numbers
+        JsonArray doc = parse("[1e1000000, -1e1000000, 1e-1000000, 5, 1E+1000000]");
+
+        assertEquals(2, count(doc, "$[?@ == 1e1000000]"));
+        assertEquals(4, count(doc, "$[?@ > 0]"));
+        assertEquals(2, count(doc, "$[?@ < 1]"));
+        assertEquals(1, count(doc, "$[?@ == 1e-1000000]"));
+        assertEquals(2, count(doc, "$[?@ >= 1e1000000]"));
+    }
 }
