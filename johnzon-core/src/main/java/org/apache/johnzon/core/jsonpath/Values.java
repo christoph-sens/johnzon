@@ -19,6 +19,7 @@
 
 package org.apache.johnzon.core.jsonpath;
 
+import java.math.BigDecimal;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.Map;
@@ -123,7 +124,21 @@ final class Values {
     }
 
     private static int compareNumbers(JsonNumber a, JsonNumber b) {
-        return a.bigDecimalValue().compareTo(b.bigDecimalValue());
+        return decimal(a).compareTo(decimal(b));
+    }
+
+    /**
+     * The value of a number. {@link JsonNumber#bigDecimalValue()} refuses numbers whose scale exceeds the provider's
+     * limit (such as {@code 1e1000000}) with an ArithmeticException; a comparison must not fail because of the
+     * magnitude of a number in the document, so the literal is parsed instead. That costs nothing: a BigDecimal
+     * comparison does not expand the exponent.
+     */
+    private static BigDecimal decimal(JsonNumber n) {
+        try {
+            return n.bigDecimalValue();
+        } catch (ArithmeticException e) {
+            return new BigDecimal(n.toString());
+        }
     }
 
     /** A pair of values still to compare, at a depth below the compared values. */
