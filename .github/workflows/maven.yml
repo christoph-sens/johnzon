@@ -1,6 +1,12 @@
 name: Maven
 
-on: [push, pull_request]
+# Upstream workflow for master. The jsonpath integration line is built by jsonpath-ci.yml: it needs the JSON-P API
+# 2.2.0-SNAPSHOT, which is not published and which that workflow builds first.
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
 
 jobs:
   build:

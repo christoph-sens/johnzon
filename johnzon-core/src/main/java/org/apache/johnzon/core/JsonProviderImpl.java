@@ -36,6 +36,7 @@ import jakarta.json.JsonMergePatch;
 import jakarta.json.JsonNumber;
 import jakarta.json.JsonObject;
 import jakarta.json.JsonObjectBuilder;
+import jakarta.json.JsonPath;
 import jakarta.json.JsonPatch;
 import jakarta.json.JsonPatchBuilder;
 import jakarta.json.JsonPointer;
@@ -52,6 +53,8 @@ import jakarta.json.stream.JsonGeneratorFactory;
 import jakarta.json.stream.JsonParser;
 import jakarta.json.stream.JsonParserFactory;
 
+import org.apache.johnzon.core.jsonpath.JsonPathImpl;
+
 public class JsonProviderImpl extends JsonProvider implements Serializable {
     private final Supplier<BufferStrategy.BufferProvider<char[]>> bufferProvider = new Cached<>(() ->
         BufferStrategyFactory.valueOf(System.getProperty(AbstractJsonFactory.BUFFER_STRATEGY, "QUEUE"))
@@ -64,6 +67,18 @@ public class JsonProviderImpl extends JsonProvider implements Serializable {
     private final Supplier<JsonBuilderFactory> builderFactory = new Cached<>(() ->
             new JsonBuilderFactoryImpl(null, bufferProvider.get(), RejectDuplicateKeysMode.DEFAULT, this));
     private int maxBigDecimalScale = Integer.getInteger("johnzon.max-big-decimal-scale", 1_000);
+
+    private final long jsonPathMaxVisitedNodes = Long.getLong(JSONPATH_MAX_VISITED_NODES, 100_000_000L);
+    private final int jsonPathMaxResultSize = Integer.getInteger(JSONPATH_MAX_RESULT_SIZE, Integer.MAX_VALUE);
+    private final int jsonPathMaxDepth = Integer.getInteger(JSONPATH_MAX_DEPTH, 1_000);
+
+    /** System property: maximum number of node visits per JSONPath evaluation. */
+    public static final String JSONPATH_MAX_VISITED_NODES = "org.apache.johnzon.jsonpath.max-visited-nodes";
+    /** System property: maximum number of nodes in a JSONPath result. */
+    public static final String JSONPATH_MAX_RESULT_SIZE = "org.apache.johnzon.jsonpath.max-result-size";
+    /** System property: maximum depth to which a JSONPath query walks into the query argument. */
+    public static final String JSONPATH_MAX_DEPTH = "org.apache.johnzon.jsonpath.max-depth";
+
     @Override
     public JsonParser createParser(final InputStream in) {
         return parserFactory.createParser(in);
@@ -209,6 +224,19 @@ public class JsonProviderImpl extends JsonProvider implements Serializable {
     @Override
     public JsonPointer createPointer(String path) {
         return new JsonPointerImpl(this, path);
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Evaluation is limited, system properties are read when this provider is created: node visits per run
+     * ({@value #JSONPATH_MAX_VISITED_NODES}, default 100,000,000), nodes in a result
+     * ({@value #JSONPATH_MAX_RESULT_SIZE}, default unlimited) and the depth to which a query walks into the
+     * query argument and compares values ({@value #JSONPATH_MAX_DEPTH}, default 1,000).
+     */
+    @Override
+    public JsonPath createPath(String query) {
+        return JsonPathImpl.create(query, this, jsonPathMaxVisitedNodes, jsonPathMaxResultSize, jsonPathMaxDepth);
     }
 
     @Override
