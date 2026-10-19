@@ -68,7 +68,8 @@ import org.apache.johnzon.core.jsonpath.regex.IRegexp;
  * by the query.
  *
  * <p>Every node visit counts against {@link Limits#maxVisitedNodes}: each node a selector produces, each node
- * a descendant segment walks through and each node a filter tests. A query that exceeds a limit fails with a
+ * a descendant segment walks through and each node a filter tests. Each such node must also be within
+ * {@link Limits#maxDepth}, whichever selector reaches it. A query that exceeds a limit fails with a
  * {@link JsonException}; it never returns a partial result.
  */
 final class Evaluator {
@@ -82,6 +83,9 @@ final class Evaluator {
     private final int maxResultSize;
     private final int maxDepth;
     private long visitedNodes;
+
+    /** Depth of the root of the current filter test in the query argument, for {@link #test(Expr, JsonValue, int)}. */
+    private int depthOffset;
 
     /** Results of absolute queries inside filters, created on first use. */
     private IdentityHashMap<Query, List<NodeImpl>> absoluteNodes;
@@ -133,6 +137,39 @@ final class Evaluator {
         }
     }
 
+    /**
+     * Counts node visits of a streaming run against the limit; the count may be large, as for nodes selected
+     * many times by nested descendant segments.
+     */
+    void visitNodes(long count) {
+        long before = visitedNodes;
+        long after = before + count;
+        if (after < before) {
+            after = Long.MAX_VALUE;
+        }
+        visitedNodes = after;
+        if (after > maxVisitedNodes || (before >>> INTERRUPT_CHECK_SHIFT) != (after >>> INTERRUPT_CHECK_SHIFT)) {
+            checkLimits(after);
+        }
+    }
+
+    /**
+     * Tests a filter expression on a candidate of a streaming run. The expression contains only relative
+     * queries, so the candidate's value is all it needs.
+     *
+     * @param filter the expression of a filter selector
+     * @param candidate the value of the child the filter tests
+     * @param depth the depth of the candidate in the query argument, for the depth limit
+     */
+    boolean test(Expr filter, JsonValue candidate, int depth) {
+        depthOffset = depth;
+        try {
+            return test(filter, NodeImpl.root(provider, candidate));
+        } finally {
+            depthOffset = 0;
+        }
+    }
+
     private void checkLimits(long visited) {
         if (visited > maxVisitedNodes) {
             throw new JsonException(JsonPathMessages.get("path.limit.visited", String.valueOf(maxVisitedNodes)));
@@ -142,9 +179,9 @@ final class Evaluator {
         }
     }
 
-    /** Fails for the children of a node at the depth limit. */
+    /** Fails for the children of a node at the depth limit; called only when a child is reached. */
     private void checkDepth(NodeImpl node) {
-        if (node.depth() >= maxDepth) {
+        if (node.depth() + depthOffset >= maxDepth) {
             throw tooDeep(maxDepth);
         }
     }
@@ -259,16 +296,20 @@ final class Evaluator {
         JsonValue value = node.getValue();
         ValueType kind = value.getValueType();
         if (kind == ValueType.OBJECT) {
-            checkDepth(node);
             JsonObject object = (JsonObject) value;
+            if (!object.isEmpty()) {
+                checkDepth(node);
+            }
             visit(object.size());
             for (Map.Entry<String, JsonValue> member : object.entrySet()) {
                 stack.push(node.child(member.getValue(), member.getKey()));
             }
         } else if (kind == ValueType.ARRAY) {
-            checkDepth(node);
             JsonArray array = (JsonArray) value;
             int size = array.size();
+            if (size > 0) {
+                checkDepth(node);
+            }
             visit(size);
             for (int i = 0; i < size; i++) {
                 stack.push(node.child(array.get(i), i));
@@ -314,6 +355,7 @@ final class Evaluator {
                 String name = ((Name) selector).name;
                 JsonValue member = ((JsonObject) value).get(name);
                 if (member != null) {
+                    checkDepth(node);
                     visit(1);
                     return apply(segments, next, node.child(member, name), sink);
                 }
@@ -330,6 +372,7 @@ final class Evaluator {
             long normalized = index >= 0 ? index : size + index;
             if (normalized >= 0 && normalized < size) {
                 int i = (int) normalized;
+                checkDepth(node);
                 visit(1);
                 return apply(segments, next, node.child(array.get(i), i), sink);
             }
@@ -346,8 +389,10 @@ final class Evaluator {
         JsonValue value = node.getValue();
         ValueType kind = value.getValueType();
         if (kind == ValueType.OBJECT) {
-            checkDepth(node);
             JsonObject object = (JsonObject) value;
+            if (!object.isEmpty()) {
+                checkDepth(node);
+            }
             visit(object.size());
             for (Map.Entry<String, JsonValue> member : object.entrySet()) {
                 if (!selectChild(node.child(member.getValue(), member.getKey()), filter, segments, next, sink)) {
@@ -355,9 +400,11 @@ final class Evaluator {
                 }
             }
         } else if (kind == ValueType.ARRAY) {
-            checkDepth(node);
             JsonArray array = (JsonArray) value;
             int size = array.size();
+            if (size > 0) {
+                checkDepth(node);
+            }
             visit(size);
             for (int i = 0; i < size; i++) {
                 if (!selectChild(node.child(array.get(i), i), filter, segments, next, sink)) {
@@ -406,6 +453,7 @@ final class Evaluator {
     }
 
     private boolean sliced(NodeImpl node, JsonArray array, int index, List<Segment> segments, int next, Sink sink) {
+        checkDepth(node);
         visit(1);
         return apply(segments, next, node.child(array.get(index), index), sink);
     }
